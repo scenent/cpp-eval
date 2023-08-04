@@ -4,6 +4,7 @@
 #include <string>
 #include <iostream>
 #include <cassert>
+#include <cmath>
 
 inline std::wstring erasedFront(std::wstring str, int index) {
     if (index >= str.size()) return L"";
@@ -61,7 +62,9 @@ enum class TokenKind {
 	IsEqual, IsNotEqual, IsGreat, IsLess, IsGreatEqual, IsLessEqual,
 	LeftParent, RightParent,
 
-	Or, And, Not
+	Or, And, Not,
+	
+	Sin, Cos, Tan
 };
 
 std::map<TokenKind, int> evalPriority = {
@@ -74,6 +77,7 @@ std::map<TokenKind, int> evalPriority = {
 	{TokenKind::Add, 3}, {TokenKind::Sub, 3},
 	{TokenKind::Mul, 4}, {TokenKind::Div, 4},
 	{TokenKind::Negative, 5},
+	{TokenKind::Sin, 6}, {TokenKind::Cos, 6}, {TokenKind::Tan, 6}
 };
 
 std::map<TokenKind, std::string> kind2String = {
@@ -96,7 +100,10 @@ std::map<TokenKind, std::string> kind2String = {
 	{TokenKind::IsLessEqual, "IsLessEqual"},
 	{TokenKind::Or, "Or"},
 	{TokenKind::And, "And"},
-	{TokenKind::Not, "Not"}
+	{TokenKind::Not, "Not"},
+	{TokenKind::Sin, "Sin"},
+	{TokenKind::Cos, "Cos"},
+	{TokenKind::Tan, "Tan"},
 };
 
 struct Token {
@@ -143,6 +150,9 @@ std::vector<Token> tokenize(std::wstring src) {
 			else if (startsWith(rest, L"not")) { result.push_back({ TokenKind::Not, L"not" }); index += 3; }
 			else if (startsWith(rest, L"true")) { result.push_back({ TokenKind::True, L"true" }); index += 4; }
 			else if (startsWith(rest, L"false")) { result.push_back({ TokenKind::False, L"false" }); index += 5; }
+			else if (startsWith(rest, L"sin")) { result.push_back({ TokenKind::Sin, L"sin" }); index += 3; }
+			else if (startsWith(rest, L"cos")) { result.push_back({ TokenKind::Cos, L"cos" }); index += 3; }
+			else if (startsWith(rest, L"tan")) { result.push_back({ TokenKind::Tan, L"tan" }); index += 3; }
 			break;
 		}
 		case (CharType::OperatorAndPunctuator): {
@@ -217,6 +227,24 @@ Token eval(std::wstring src) {
 			target1 = stack.top(); stack.pop();
 			if (target1.type == TokenKind::Float) { stack.push({ TokenKind::Float, L"-" + target1.data }); }
 			else if (target1.type == TokenKind::Int) { stack.push({ TokenKind::Int, L"-" + target1.data }); }
+			else assert(false);
+		}
+		else if (postfix[i].type == TokenKind::Sin) {
+			target1 = stack.top(); stack.pop();
+			if (target1.type == TokenKind::Float) { stack.push({ TokenKind::Float, std::to_wstring(sin(stoi(target1.data))) }); }
+			else if (target1.type == TokenKind::Int) { stack.push({ TokenKind::Float, std::to_wstring(sinf(stof(target1.data))) }); }
+			else assert(false);
+		}
+		else if (postfix[i].type == TokenKind::Cos) {
+			target1 = stack.top(); stack.pop();
+			if (target1.type == TokenKind::Float) { stack.push({ TokenKind::Float, std::to_wstring(cos(stoi(target1.data))) }); }
+			else if (target1.type == TokenKind::Int) { stack.push({ TokenKind::Float, std::to_wstring(cosf(stof(target1.data))) }); }
+			else assert(false);
+		}
+		else if (postfix[i].type == TokenKind::Tan) {
+			target1 = stack.top(); stack.pop();
+			if (target1.type == TokenKind::Float) { stack.push({ TokenKind::Float, std::to_wstring(tan(stoi(target1.data))) }); }
+			else if (target1.type == TokenKind::Int) { stack.push({ TokenKind::Float, std::to_wstring(tanf(stof(target1.data))) }); }
 			else assert(false);
 		}
 		else if (postfix[i].type == TokenKind::Add) {
@@ -423,4 +451,8 @@ int main(){
 	eval(L"-(1 + 2 * 3)").print();
 	std::cout << "not 1 == 1 or not 1 == 2 -> ";
 	eval(L"not 1 == 1 or not 1 == 2").print();
+	std::cout << "-cos(0) + sin(0) + tan(0) -> ";
+	eval(L"-cos(0) + sin(0) + tan(0)").print();
+	std::cout << "sin 1 -> ";
+	eval(L"sin 1").print();
 }
