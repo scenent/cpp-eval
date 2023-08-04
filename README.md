@@ -12,4 +12,6 @@
 1 == 1 and 2 == 2 and 3 != 3 -> [False, "false"]
 "Hello" + " " + "World!" -> [String, "Hello World!"]
 true and false -> [False, "false"]
+-(1 + 2 * 3) -> [Int, "-7"]
+not 1 == 1 or not 1 == 2 -> [True, "true"]
 ```
