@@ -57,20 +57,23 @@ enum class TokenKind {
 	String,
 	
 	Add, Sub, Mul, Div,
+	Negative,
 	IsEqual, IsNotEqual, IsGreat, IsLess, IsGreatEqual, IsLessEqual,
 	LeftParent, RightParent,
 
-	Or, And,
+	Or, And, Not
 };
 
 std::map<TokenKind, int> evalPriority = {
 	{TokenKind::LeftParent, -2},
-	{TokenKind::And, 0}, {TokenKind::Or, 1},
+	{TokenKind::And, -1}, {TokenKind::Or, 0},
+	{TokenKind::Not, 1},
 	{TokenKind::IsEqual, 2}, {TokenKind::IsNotEqual, 2},
-	{TokenKind::IsGreat, 2}, {TokenKind::IsLess, 2}, 
+	{TokenKind::IsGreat, 2}, {TokenKind::IsLess, 2},
 	{TokenKind::IsGreatEqual, 2}, {TokenKind::IsLessEqual, 2},
 	{TokenKind::Add, 3}, {TokenKind::Sub, 3},
 	{TokenKind::Mul, 4}, {TokenKind::Div, 4},
+	{TokenKind::Negative, 5},
 };
 
 std::map<TokenKind, std::string> kind2String = {
@@ -84,6 +87,7 @@ std::map<TokenKind, std::string> kind2String = {
 	{TokenKind::Sub, "Sub"},
 	{TokenKind::Mul, "Mul"},
 	{TokenKind::Div, "Div"},
+	{TokenKind::Negative, "Negative"},
 	{TokenKind::IsEqual, "IsEqual"},
 	{TokenKind::IsNotEqual, "IsNotEqual"},
 	{TokenKind::IsGreat, "IsGreat"},
@@ -92,6 +96,7 @@ std::map<TokenKind, std::string> kind2String = {
 	{TokenKind::IsLessEqual, "IsLessEqual"},
 	{TokenKind::Or, "Or"},
 	{TokenKind::And, "And"},
+	{TokenKind::Not, "Not"}
 };
 
 struct Token {
@@ -135,6 +140,7 @@ std::vector<Token> tokenize(std::wstring src) {
 			std::wstring rest = erasedFront(src, index);
 			if (startsWith(rest, L"and")) { result.push_back({ TokenKind::And, L"and" }); index += 3; }
 			else if (startsWith(rest, L"or")) { result.push_back({ TokenKind::Or, L"or" }); index += 2; }
+			else if (startsWith(rest, L"not")) { result.push_back({ TokenKind::Not, L"not" }); index += 3; }
 			else if (startsWith(rest, L"true")) { result.push_back({ TokenKind::True, L"true" }); index += 4; }
 			else if (startsWith(rest, L"false")) { result.push_back({ TokenKind::False, L"false" }); index += 5; }
 			break;
@@ -142,7 +148,18 @@ std::vector<Token> tokenize(std::wstring src) {
 		case (CharType::OperatorAndPunctuator): {
 			std::wstring rest = erasedFront(src, index);
 			if (src[index] == L'+') { result.push_back({ TokenKind::Add, L"+" }); index++; }
-			else if (src[index] == L'-') { result.push_back({ TokenKind::Sub, L"-" }); index++;}
+			else if (src[index] == L'-') { 
+				if (result.empty() || (result[result.size()-1].type != TokenKind::Int
+						    && result[result.size() - 1].type != TokenKind::Float
+				                    && result[result.size() - 1].type != TokenKind::RightParent)) {
+					result.push_back({ TokenKind::Negative, L"-" });
+					index++;
+				}
+				else {
+					result.push_back({ TokenKind::Sub, L"-" });
+					index++;
+				}
+			}
 			else if (src[index] == L'*') { result.push_back({ TokenKind::Mul, L"*" }); index++;}
 			else if (src[index] == L'/') {result.push_back({ TokenKind::Div, L"/" });index++;}
 			else if (src[index] == L'(') {result.push_back({ TokenKind::LeftParent, L"(" });index++;}
@@ -195,6 +212,12 @@ Token eval(std::wstring src) {
 	for (int i = 0; i < postfix.size(); i++) {
 		if (postfix[i].type == TokenKind::Int || postfix[i].type == TokenKind::Float || postfix[i].type == TokenKind::String || postfix[i].type == TokenKind::True || postfix[i].type == TokenKind::False) {
 			stack.push(postfix[i]);
+		}
+		else if (postfix[i].type == TokenKind::Negative) {
+			target1 = stack.top(); stack.pop();
+			if (target1.type == TokenKind::Float) { stack.push({ TokenKind::Float, L"-" + target1.data }); }
+			else if (target1.type == TokenKind::Int) { stack.push({ TokenKind::Int, L"-" + target1.data }); }
+			else assert(false);
 		}
 		else if (postfix[i].type == TokenKind::Add) {
 			target2 = stack.top(); stack.pop();
@@ -354,6 +377,12 @@ Token eval(std::wstring src) {
 			}
 			else assert(false);
 		}
+		else if (postfix[i].type == TokenKind::Not) {
+			target1 = stack.top(); stack.pop();
+			if (target1.type == TokenKind::True) stack.push({ TokenKind::False, L"false" });
+			else if (target1.type == TokenKind::False) stack.push({ TokenKind::True, L"true" });
+			else assert(false);
+		}
 		else {
 			std::cout << "ERROR\n";
 		}
@@ -390,4 +419,8 @@ int main(){
 	eval(L"\"Hello\" + \" \" + \"World!\"").print();
 	std::cout << "true and false -> ";
 	eval(L"true and false").print();
+	std::cout << "-(1 + 2 * 3) -> ";
+	eval(L"-(1 + 2 * 3)").print();
+	std::cout << "not 1 == 1 or not 1 == 2 -> ";
+	eval(L"not 1 == 1 or not 1 == 2").print();
 }
