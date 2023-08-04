@@ -14,4 +14,6 @@
 true and false -> [False, "false"]
 -(1 + 2 * 3) -> [Int, "-7"]
 not 1 == 1 or not 1 == 2 -> [True, "true"]
+-cos(0) + sin(0) + tan(0) -> [Float, "-1.000000"]
+sin 1 -> [Float, "0.841471"]
 ```
