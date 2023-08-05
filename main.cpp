@@ -5,6 +5,7 @@
 #include <iostream>
 #include <cassert>
 #include <cmath>
+#include <sstream>
 
 inline std::wstring erasedFront(std::wstring str, int index) {
     if (index >= str.size()) return L"";
@@ -19,6 +20,24 @@ inline bool startsWith(std::wstring str, std::wstring prefix) {
     return str.size() >= prefix.size() && str.compare(0, prefix.size(), prefix) == 0;
 }
 
+inline std::wstring eraseSpace(std::wstring str) {
+    std::wstring::iterator it = str.begin();
+    while (it != str.end()){
+    	if (*it == L' ') it = str.erase(it);
+		else it++;
+	}
+	return str;
+}
+
+inline std::vector<std::wstring> split(std::wstring input, wchar_t delimiter) {
+    std::vector<std::wstring> answer;
+    std::wstringstream ss(input);
+    std::wstring temp;
+    while (getline(ss, temp, delimiter)) {
+        answer.push_back(temp);
+    }
+    return answer;
+}
 
 enum class CharType {
 	Unknown,
@@ -56,6 +75,7 @@ enum class TokenKind {
 	True, False,
 	Int, Float,
 	String,
+	Parameter,
 	
 	Add, Sub, Mul, Div,
 	Negative,
@@ -64,7 +84,9 @@ enum class TokenKind {
 
 	Or, And, Not,
 	
-	Sin, Cos, Tan
+	Sin, Cos, Tan,
+	
+	Pow
 };
 
 std::map<TokenKind, int> evalPriority = {
@@ -77,8 +99,10 @@ std::map<TokenKind, int> evalPriority = {
 	{TokenKind::Add, 3}, {TokenKind::Sub, 3},
 	{TokenKind::Mul, 4}, {TokenKind::Div, 4},
 	{TokenKind::Negative, 5},
-	{TokenKind::Sin, 6}, {TokenKind::Cos, 6}, {TokenKind::Tan, 6}
+	{TokenKind::Sin, 6}, {TokenKind::Cos, 6}, {TokenKind::Tan, 6},
+	{TokenKind::Pow, 6},
 };
+
 
 std::map<TokenKind, std::string> kind2String = {
 	{TokenKind::Unknown, "Unknown"},
@@ -87,6 +111,7 @@ std::map<TokenKind, std::string> kind2String = {
 	{TokenKind::Int, "Int"},
 	{TokenKind::Float,"Float"},
 	{TokenKind::String, "String"},
+	{TokenKind::Parameter, "Parameter"},
 	{TokenKind::Add, "Add"},
 	{TokenKind::Sub, "Sub"},
 	{TokenKind::Mul, "Mul"},
@@ -104,6 +129,8 @@ std::map<TokenKind, std::string> kind2String = {
 	{TokenKind::Sin, "Sin"},
 	{TokenKind::Cos, "Cos"},
 	{TokenKind::Tan, "Tan"},
+	{TokenKind::Pow, "Pow"},
+	
 };
 
 struct Token {
@@ -114,6 +141,8 @@ struct Token {
 		std::wcout << ", \"" << data << L"\"]\n";
 	}
 };
+
+std::vector<Token> getParameter(std::wstring src);
 
 std::vector<Token> tokenize(std::wstring src) {
 	std::vector<Token> result;
@@ -153,6 +182,31 @@ std::vector<Token> tokenize(std::wstring src) {
 			else if (startsWith(rest, L"sin")) { result.push_back({ TokenKind::Sin, L"sin" }); index += 3; }
 			else if (startsWith(rest, L"cos")) { result.push_back({ TokenKind::Cos, L"cos" }); index += 3; }
 			else if (startsWith(rest, L"tan")) { result.push_back({ TokenKind::Tan, L"tan" }); index += 3; }
+			else if (startsWith(rest,  L"pow")){
+				result.push_back({TokenKind::Pow, L"pow"});
+				index += 3;
+				if (src[index] != L'(') assert(false);
+				index++;
+				int startIndex = index;
+				int endIndex = 0;
+				std::wstring parameterSource = L"";
+				std::stack<wchar_t> parentStack;
+				parentStack.push(L'(');
+				while (index < src.size() && parentStack.empty() == false){
+					if (src[index] == L'('){
+						parentStack.push(L'(');
+					}
+					else if (src[index] == L')'){
+						parentStack.pop();
+					}
+					index++;
+				}
+				endIndex = index;
+				for (int i=startIndex; i<endIndex - 1; i++){
+					parameterSource += src[i];
+				}
+				result.push_back({TokenKind::Parameter, parameterSource});
+			}
 			break;
 		}
 		case (CharType::OperatorAndPunctuator): {
@@ -196,7 +250,9 @@ Token eval(std::wstring src) {
 	std::vector<Token> postfix;
 	std::stack<Token> stack;
 	for (int n = 0; n < tokens.size(); n++) {
-		if (tokens[n].type == TokenKind::Int || tokens[n].type == TokenKind::Float || tokens[n].type == TokenKind::String || tokens[n].type == TokenKind::True || tokens[n].type == TokenKind::False) {
+		if (tokens[n].type == TokenKind::Int || tokens[n].type == TokenKind::Float || tokens[n].type == TokenKind::String || tokens[n].type == TokenKind::True || tokens[n].type == TokenKind::False
+			|| tokens[n].type == TokenKind::Parameter
+		) {
 			postfix.push_back(tokens[n]);
 		}
 		else if(tokens[n].type == TokenKind::LeftParent) {
@@ -220,7 +276,9 @@ Token eval(std::wstring src) {
 	}
 	Token target1, target2;
 	for (int i = 0; i < postfix.size(); i++) {
-		if (postfix[i].type == TokenKind::Int || postfix[i].type == TokenKind::Float || postfix[i].type == TokenKind::String || postfix[i].type == TokenKind::True || postfix[i].type == TokenKind::False) {
+		if (postfix[i].type == TokenKind::Int || postfix[i].type == TokenKind::Float || postfix[i].type == TokenKind::String || postfix[i].type == TokenKind::True || postfix[i].type == TokenKind::False
+			|| postfix[i].type == TokenKind::Parameter
+		) {
 			stack.push(postfix[i]);
 		}
 		else if (postfix[i].type == TokenKind::Negative) {
@@ -411,6 +469,15 @@ Token eval(std::wstring src) {
 			else if (target1.type == TokenKind::False) stack.push({ TokenKind::True, L"true" });
 			else assert(false);
 		}
+		else if (postfix[i].type == TokenKind::Pow){
+			target1 = stack.top(); stack.pop();
+			if (target1.type != TokenKind::Parameter) assert(false);
+			std::vector<Token> params = getParameter(target1.data);
+			if (params.size() != 2) assert(false);
+			if (!(params[0].type == TokenKind::Int || params[0].type == TokenKind::Float)) assert(false);
+			if (!(params[1].type == TokenKind::Int || params[1].type == TokenKind::Float)) assert(false);
+			stack.push({TokenKind::Float, std::to_wstring(pow(stod(params[0].data), stod(params[1].data)))});
+		}
 		else {
 			std::cout << "ERROR\n";
 		}
@@ -423,6 +490,20 @@ Token eval(std::wstring src) {
 		assert(false);
 	}
 }
+
+std::vector<Token> getParameter(std::wstring src){
+	std::vector<std::wstring> elements = split(eraseSpace(src), L',');
+	std::vector<Token> result;
+	for (int i=0; i<elements.size(); i++){
+		Token t = eval(elements[i]);
+		if (startsWith(t.data, L" ")){
+			t.data.erase(t.data.begin());
+		}
+		result.push_back(t);
+	}
+	return result;
+}
+
 
 int main(){
 	std::cout << "1 + 2 -> ";
@@ -455,4 +536,6 @@ int main(){
 	eval(L"-cos(0) + sin(0) + tan(0)").print();
 	std::cout << "sin 1 -> ";
 	eval(L"sin 1").print();
+	std::cout << "pow((1 * 4), 2) + 4 -> ";
+	eval(L"pow((1 * 4), 2) + 4").print();
 }
